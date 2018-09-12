@@ -1,4 +1,5 @@
 import numpy as np
+from mc_conv import conv2dpython classic.py
 
 def tanh(x):
     return np.tanh(x)
@@ -11,46 +12,6 @@ def log(x):
 
 def d_log(x):
     return log(x) * (1 - log(x))
-
-def conv2d(a, f):
-    s = f.shape + tuple(np.subtract(a.shape, f.shape) + 1)
-    strd = np.lib.stride_tricks.as_strided
-    subM = strd(a, shape=s, strides=a.strides * 2)
-    return np.einsum('ij,ijkl->kl', f, subM)
-
-
-def fft_convolve2d(x, y):
-    """ 2D convolution, using FFT"""
-
-    shape = y.shape
-    size = y.size
-
-    x = np.reshape(x, -1)
-    y = np.reshape(y, -1)
-
-    y = np.pad(y, [(0, x.shape[0] - y.shape[0])], mode='constant')
-
-
-    fx = np.fft.fft(x)
-    fy = np.fft.fft(y)
-
-    n = fx.size
-
-    conv = np.convolve(fx, np.concatenate((fy, fy)))
-    conv = conv[n:2*n]
-
-    reverse = np.fft.ifft(conv)/n
-
-    return np.reshape(reverse[:size], shape)
-
-    # fr = np.fft.fft2(x)
-    # fr2 = np.fft.fft2(np.flipud(np.fliplr(y)))
-    # m, n = fr.shape
-    # cc = np.real(np.fft.ifft2(fr * fr2))
-    # cc = np.roll(cc, int(-m / 2 + 1), axis=0)
-    # cc = np.roll(cc, int(-n / 2 + 1), axis=1)
-    # return cc
-
 
 np.random.seed(598765)
 
@@ -98,7 +59,6 @@ for iter in range(num_epoch):
         layer_2_act = log(layer_2)
 
         cost = np.square(layer_2_act - Y[i]).sum() * 0.5
-        #print("Current iter : ",iter , " Current train: ",i, " Current cost: ",cost,end="\r")
 
         grad_2_part_1 = layer_2_act - Y[i]
         grad_2_part_2 = d_log(layer_2)
@@ -141,5 +101,3 @@ print("----------------")
 print("Start Out put : ", start_out)
 print("Final Out put : ", final_out)
 print("Ground Truth  : ", Y.T)
-
-# -- end code --

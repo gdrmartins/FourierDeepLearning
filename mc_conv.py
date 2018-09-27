@@ -44,6 +44,12 @@ def fftconv2d(x, y, mode="valid"):
     # Convert data to numpy arrays
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
+
+    # ADENDO
+    s1 = np.array(x.shape)
+    s2 = np.array(y.shape)
+    shape = s1 + s2 - 1
+
     # Calculate the padding needed to make y the same as x
     colpad = (0, x.shape[0]-y.shape[0])
     rowpad = (0, x.shape[1]-y.shape[1])
@@ -63,9 +69,9 @@ def fftconv2d(x, y, mode="valid"):
     # Compute the Hadamard product
     z = x_trans*y_trans
     # Compute the inverse transform
-    z_inv = np.fft.ifft(z).real.round(2)
+    z_inv = np.fft.ifft(z).real#.round(2)
     # Reshape the output into a matrix
-    output = z_inv.reshape(x_pad.shape)
+    output = z_inv.reshape(x_pad.shape)[:shape[0],:shape[1]]
     # Return the correct output slice as requested
     if mode == "same":
         return trim_edges(output, np.array(x.shape))

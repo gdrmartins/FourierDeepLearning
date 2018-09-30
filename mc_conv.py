@@ -102,17 +102,13 @@ def multiple_fftconv2d(input, kernels, mode="valid"):
     # Calculate output shape
     x_initial_shape = np.array(x.shape)
     y_initial_shape = np.array(kernels[0].shape)
-    z_final_shape = x_initial_shape + y_initial_shape - 1
-    # Calculate the padding needed to make y the same as x
-    colpad = (0, x.shape[0]-kernels[0].shape[0])
-    rowpad = (0, x.shape[1]-kernels[0].shape[1])
-    # Pad the kernel to the same size as the input
-    kernels = [np.pad(kernel, (colpad, rowpad), mode='constant') for kernel in kernels]
-    # Pad the matrices to allow for a linear convolution to take place
-    nrows, ncols = x.shape
-    x = np.pad(x, ((0, nrows-1), (0, ncols-1)), mode='constant')
-    kernels = [np.pad(kernel, ((0, nrows-1), (0, ncols-1)), mode='constant') for kernel in kernels]
-    padded_shape = x.shape
+    z_final_shape = x_initial_shape
+    for kernel in kernels:
+        z_final_shape = z_final_shape + np.array(kernel.shape) - 1
+    # Pad the input to the same size as the final shape
+    x = np.pad(x, ((0, z_final_shape[0]-x.shape[0]), (0, z_final_shape[1]-x.shape[1])), mode='constant')
+    # Pad the kernels to the same size as the input
+    kernels = [np.pad(kernel, ((0, x.shape[0]-kernel.shape[0]), (0, x.shape[1]-kernel.shape[1])), mode='constant') for kernel in kernels]
     # Flatten the matrices before computing the transform
     x = x.reshape(-1)
     kernels = [kernel.reshape(-1) for kernel in kernels]
@@ -126,14 +122,13 @@ def multiple_fftconv2d(input, kernels, mode="valid"):
     # Compute the inverse transform
     z = np.fft.ifft(z).real
     # Reshape the output into a matrix
-    z = z.reshape(padded_shape)
-    # Get only the correct output size
-    z = z[:z_final_shape[0], :z_final_shape[1]]
+    z = z.reshape(z_final_shape)
     # Return the correct output slice as requested
     if mode == "same":
-        return trim_edges(z, np.array(x_initial_shape))
+        return z[:input.shape[0],:input.shape[1]]
     elif mode == "valid":
-        return trim_edges(z, np.array(x_initial_shape) - np.array(y_initial_shape) + 1)
+        valid_shape = x_initial_shape - abs(z_final_shape - x_initial_shape)
+        return trim_edges(z, valid_shape)
     return z
 
 

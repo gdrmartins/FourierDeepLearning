@@ -42,12 +42,11 @@ def dft(array):
     # Return the multiplication of the two matrices
     return np.dot(M, x)
 
-
 def fft(array):
     """
     This method is used to compute the fft of a given array using the
     Cooley-Tuckey algorithm (radix-2 DIT). Supports lengths of up to
-    1048576 or 1024x1024.
+    268435456 or 16384x16384.
 
     Properties:
         * array : list
@@ -58,7 +57,9 @@ def fft(array):
     length = len(array)
     # If input is not power of two, compute DFT
     if np.log2(length) % 1 > 0:
-        return dft(array)
+        return None
+    if length > 268435456:
+        return None
     # Define main variables of the FFT transform
     x = np.asarray(array, dtype=complex)
     # Determine the chunk size (32 is the recommendation)
@@ -86,8 +87,3 @@ def fft(array):
         X = np.vstack([E + factor * O, E - factor * O])
     # Flatten the resulting array
     return X.ravel()
-
-
-
-
-    

@@ -23,6 +23,11 @@ Requriements:
 
 import mc_fourier as fourier
 import numpy as np
+import timeit
+
+
+def shift_bit_length(x):
+    return 1<<(x-1).bit_length()
 
 
 def fftconv2d(x, y, mode="valid"):
@@ -58,12 +63,12 @@ def fftconv2d(x, y, mode="valid"):
     x = np.pad(x, ((0, nrows-1), (0, ncols-1)), mode='constant')
     y = np.pad(y, ((0, nrows-1), (0, ncols-1)), mode='constant')
     padded_shape = x.shape
-    # Flatten the matrices before computing the transform
-    x = x.reshape(-1)
-    y = y.reshape(-1)
     # Compute the transforms
     x = fourier.fft(x)
     y = fourier.fft(y)
+    # Flatten the matrices before computing the transform
+    x = x.reshape(-1)
+    y = y.reshape(-1)
     # Compute the Hadamard product
     z = x*y
     # Compute the inverse transform
@@ -80,7 +85,7 @@ def fftconv2d(x, y, mode="valid"):
     return z
 
 
-def multiple_fftconv2d(input, kernels, mode="valid"):
+def multiple_fftconv2d(input, kernels, epochs, mode="valid"):
     """
     This method is used to compute a convolution between multiple 2D
     matrices usign Fourier Transform. Supports modes: full, same, valid.
@@ -92,19 +97,22 @@ def multiple_fftconv2d(input, kernels, mode="valid"):
         * kernels : list
             3D array containing all matrices that will serve as the
             kernel "filters" for the convolution.
+        * epochs : list
+            1D array containing the epochs to run the convolutions
         * mode : string
             string indicating the mode of convolution, or, in other
             words, the size of the output matrix. {full, same, valid}
     """
     # Convert data to numpy arrays
     x = np.asarray(input, dtype=float)
-    kernels = np.asarray(kernels, dtype=float)
+    kernels = [np.asarray(kernel, dtype=float) for kernel in kernels]
     # Calculate output shape
     x_initial_shape = np.array(x.shape)
-    y_initial_shape = np.array(kernels[0].shape)
-    z_final_shape = x_initial_shape
+    z_real_final_shape = x_initial_shape
     for kernel in kernels:
-        z_final_shape = z_final_shape + np.array(kernel.shape) - 1
+        z_real_final_shape = z_real_final_shape + np.array(kernel.shape) - 1
+    next_pow2 = shift_bit_length(int(z_real_final_shape[0]))
+    z_final_shape = (next_pow2, next_pow2)
     # Pad the input to the same size as the final shape
     x = np.pad(x, ((0, z_final_shape[0]-x.shape[0]), (0, z_final_shape[1]-x.shape[1])), mode='constant')
     # Pad the kernels to the same size as the input
@@ -113,21 +121,29 @@ def multiple_fftconv2d(input, kernels, mode="valid"):
     x = x.reshape(-1)
     kernels = [kernel.reshape(-1) for kernel in kernels]
     # Compute the transforms
+    start = timeit.default_timer()
     x = fourier.fft(x)
     kernels = [fourier.fft(kernel) for kernel in kernels]
+    print("Multi-Fourier-Conv2d pre-processing:", timeit.default_timer() - start)
     # Compute the Hadamard product
     z = x
-    for kernel in kernels:
-        z *= kernel
+    start = timeit.default_timer()
+    for _ in epochs:
+        for kernel in kernels:
+            z *= kernel
+    print("Multi-Fourier-Conv2d pos-processing:", timeit.default_timer() - start)
     # Compute the inverse transform
     z = np.fft.ifft(z).real
     # Reshape the output into a matrix
     z = z.reshape(z_final_shape)
+
+    # Remove power of two padding
+    z = z[:z_real_final_shape[0],:z_real_final_shape[1]]
     # Return the correct output slice as requested
     if mode == "same":
-        return z[:input.shape[0],:input.shape[1]]
+        return trim_edges(z, x_initial_shape)
     elif mode == "valid":
-        valid_shape = x_initial_shape - abs(z_final_shape - x_initial_shape)
+        valid_shape = x_initial_shape - abs(z_real_final_shape - x_initial_shape)
         return trim_edges(z, valid_shape)
     return z
 
